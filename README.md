@@ -50,7 +50,7 @@ const decompressedBuffer = Buffer.from(decompressedArrayBuffer);
 
 ### Browser (ajax)
 
-```
+```javascript
 const { prs } = require('archiveunpacker');
 const req = await fetch('path/somefile.prs');
 const prsFile = await res.arrayBuffer();
@@ -59,7 +59,7 @@ const decompressedArrayBuffer = prs(prsFile);
 
 ### Browser (file input)
 
-```
+```javascript
 import { prs } from 'archiveunpacker';
 
 const fileInput = document.getElementById('my-file-input');
@@ -75,7 +75,6 @@ fileInput.addEventListener('change', async evt => {
 	const decompressedArrayBuffer = prs(prsFile);
 
 });
-
 ```
 
 ## Formats
