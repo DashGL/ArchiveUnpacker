@@ -32,4 +32,4 @@ import zpr from './zpr';
 import { ByteFile } from './types';
 
 // Exports
-export { prs, psz, narc, ByteFile };
+export { narc, prs, zpr, ByteFile };
