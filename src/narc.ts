@@ -23,7 +23,7 @@
     
 */
 
-import ByteReader from './ByteReader';
+import { ByteReader } from 'bytereader';
 import { ByteFile } from './types';
 
 const narc = (inBuffer: ArrayBuffer): ByteFile[] => {

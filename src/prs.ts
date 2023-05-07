@@ -23,12 +23,12 @@
     
 */
 
-import ByteStream from './ByteReader';
+import { ByteReader } from 'bytereader';
 
 const prs = (buffer: ArrayBuffer): ArrayBuffer => {
   const inBuffer = new Uint8Array(buffer);
   const outBuffer: number[] = [];
-  const bs = new ByteStream(inBuffer);
+  const bs = new ByteReader(inBuffer);
   const { byteLength } = inBuffer;
 
   const out = {
