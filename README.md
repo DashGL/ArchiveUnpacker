@@ -91,6 +91,10 @@ NARC is a "Nitro Archive", which is an archive format used for Phantasy Star Zer
 
 ZPR is a compression format used for Phantasy Star Zero on the Nintendo DS. Intermally the way this works is there is a 0x10 length header, will all of the bytes afterwards (un)XOR'dby 0x95. This will fix the bytes to be readable and then decompress the file with `prs` and return the result. 
 
+## Dingboard
+
+- Dingboard
+
 ## License
 
 The `ArchiveUnpacker` library is licensed under the MIT License. See the `LICENSE` file for details.
