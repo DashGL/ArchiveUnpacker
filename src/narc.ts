@@ -23,7 +23,7 @@
     
 */
 
-import { ByteReader } from 'bytereader';
+import ByteReader from './ByteReader';
 import { ByteFile } from './types';
 
 const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
@@ -199,7 +199,8 @@ const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
 
       files.push({ name: fileName, data });
     } catch (error) {
-      console.warn(`Failed to extract file ${index}: ${error.message}`);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Failed to extract file ${index}: ${message}`);
       // Add empty file entry to maintain index consistency
       files.push({
         name: `${index.toString().padStart(2, '0')}.error`,

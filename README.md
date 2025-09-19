@@ -8,6 +8,8 @@
 npm i archiveunpacker
 ```
 
+**Zero Dependencies**: ArchiveUnpacker now includes its own ByteReader implementation, so no external dependencies are required.
+
 ## Supported Archive Formats
 
 - **NARC** - Nintendo Archive format used in DS games
@@ -106,7 +108,7 @@ The NARC extractor automatically detects file types and assigns appropriate exte
 ### Extract Player Weapon
 
 ```typescript
-import { zpr, narc } from 'archiveunpacker';
+import { zpr, narc, ByteReader } from 'archiveunpacker';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 // Load weapon file

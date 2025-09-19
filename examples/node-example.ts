@@ -5,7 +5,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, basename } from 'path';
-import { zpr, narc, ByteFile } from './index';
+import { zpr, narc, ByteFile, ByteReader } from './index';
 
 /**
  * Extract a ZPR-compressed NARC file and save individual assets
