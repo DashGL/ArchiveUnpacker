@@ -23,77 +23,84 @@
     
 */
 
-import { ByteReader } from 'bytereader';
+const prs = (buffer: ArrayBuffer, outputSize?: number): ArrayBuffer => {
+  const input = new Uint8Array(buffer);
+  const targetSize = outputSize || input.length * 4; // Default estimation if not provided
+  const output = new Uint8Array(targetSize);
 
-const prs = (buffer: ArrayBuffer): ArrayBuffer => {
-  const inBuffer = new Uint8Array(buffer);
-  const outBuffer: number[] = [];
-  const bs = new ByteReader(inBuffer);
-  const { byteLength } = inBuffer;
+  let inputPos = 0;
+  let outputPos = 0;
+  let ctrlByte = 0;
+  let ctrlByteCounter = 1;
 
-  const out = {
-    ofs: 0,
-    bit: 0,
-    cmd: 0,
+  const getControlBit = (): boolean => {
+    ctrlByteCounter--;
+    if (ctrlByteCounter === 0) {
+      if (inputPos >= input.length) return false;
+      ctrlByte = input[inputPos++];
+      ctrlByteCounter = 8;
+    }
+    const bit = (ctrlByte & 1) > 0;
+    ctrlByte >>= 1;
+    return bit;
   };
 
-  const getBit = (): number => {
-    if (out.bit === 0) {
-      out.cmd = bs.readUInt8();
-      out.bit = 8;
+  while (outputPos < targetSize && inputPos < input.length) {
+    // Copy literal bytes while control bit is 1
+    while (getControlBit()) {
+      if (inputPos >= input.length || outputPos >= targetSize) break;
+      output[outputPos++] = input[inputPos++];
     }
 
-    const newBit = out.cmd & 1;
-    out.cmd >>= 1;
-    out.bit -= 1;
-    return newBit ? 1 : 0;
-  };
+    if (outputPos >= targetSize || inputPos >= input.length) break;
 
-  while (out.ofs < byteLength) {
-    const bool = getBit();
-    if (bool) {
-      outBuffer.push(inBuffer[out.ofs]);
-      out.ofs += 1;
-      continue;
-    }
+    let offset: number, length: number;
 
-    const t = getBit();
-    let amount = 0;
-    let start = 0;
+    if (getControlBit()) {
+      // Long distance back-reference (2-byte encoding)
+      if (inputPos >= input.length - 1) break;
 
-    if (t) {
-      const a = bs.readUInt8();
-      const b = bs.readUInt8();
+      const byte1 = input[inputPos++];
+      const byte2 = input[inputPos++];
 
-      const offset = ((b << 8) | a) >> 3;
-      amount = a & 7;
-      if (out.ofs < byteLength) {
-        amount = amount === 0 ? bs.readUInt8() + 10 : amount + 2;
+      if (byte1 === 0 && byte2 === 0) {
+        // End marker
+        break;
       }
-      start = outBuffer.length - 0x2000 + offset;
-    } else {
-      amount = 0;
-      for (let i = 0; i < 2; i++) {
-        amount <<= 1;
-        amount |= getBit();
-      }
-      const offset = bs.readUInt8();
-      amount += 2;
-      start = outBuffer.length - 0x100 + offset;
-    }
 
-    for (let i = 0; i < amount; i++) {
-      if (start >= 0 && start < outBuffer.length) {
-        outBuffer.push(outBuffer[start]);
+      offset = (byte2 << 5) + (byte1 >> 3) - 8192;
+      const lengthPart = byte1 & 7;
+
+      if (lengthPart !== 0) {
+        length = lengthPart + 2;
       } else {
-        outBuffer.push(0);
+        if (inputPos >= input.length) break;
+        length = input[inputPos++] + 10;
       }
-      start += 1;
+    } else {
+      // Short distance back-reference
+      length = 2;
+      if (getControlBit()) length += 2;
+      if (getControlBit()) length++;
+
+      if (inputPos >= input.length) break;
+      offset = input[inputPos++] - 256;
+    }
+
+    // Copy from back-reference
+    const copyPos = offset + outputPos;
+    for (let i = 0; i < length && outputPos < targetSize; i++) {
+      if (copyPos + i >= 0 && copyPos + i < outputPos) {
+        output[outputPos++] = output[copyPos + i];
+      } else {
+        // Handle invalid back-reference gracefully
+        output[outputPos++] = 0;
+      }
     }
   }
 
-  const array = new Uint8Array(outBuffer);
-  return array.buffer;
+  // Return exact sized buffer
+  return output.slice(0, outputPos).buffer;
 };
 
 export default prs;

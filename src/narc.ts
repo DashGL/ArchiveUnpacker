@@ -28,6 +28,11 @@ import { ByteFile } from './types';
 
 const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
   const files: ByteFile[] = [];
+
+  if (inBuffer.byteLength < 16) {
+    throw new Error('NARC file too small');
+  }
+
   const bs = new ByteReader(inBuffer);
 
   // https://docs.dashgl.com/format/phantasy-star-zero/narc-archive#narc-section
@@ -44,7 +49,11 @@ const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
   };
 
   if (narcSection.magic !== NARC_MAGIC) {
-    throw new Error('Invalid NARC magic number');
+    throw new Error(`Invalid NARC magic number: 0x${narcSection.magic.toString(16).toUpperCase()}`);
+  }
+
+  if (narcSection.archiveLen !== inBuffer.byteLength) {
+    console.warn(`NARC archive length mismatch: expected ${narcSection.archiveLen}, got ${inBuffer.byteLength}`);
   }
 
   // https://docs.dashgl.com/format/phantasy-star-zero/narc-archive#btaf-section
@@ -155,11 +164,48 @@ const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
     }
   }
 
+  // Helper function to detect file type from magic bytes
+  const detectFileType = (data: ArrayBuffer): string => {
+    if (data.byteLength < 4) return 'bin';
+
+    const view = new DataView(data);
+    const magic = view.getUint32(0, false); // Big-endian
+
+    switch (magic) {
+      case 0x424D4430: return 'nsbmd'; // BMD0
+      case 0x42545830: return 'nsbtx'; // BTX0
+      case 0x42434130: return 'nsbca'; // BCA0
+      case 0x42545030: return 'nsbtp'; // BTP0
+      case 0x42544130: return 'nsbta'; // BTA0
+      case 0x4E415243: return 'narc';  // NARC
+      default: return 'bin';
+    }
+  };
+
   // Loop Through each file and slice
-  bnafFiles.forEach((file) => {
+  bnafFiles.forEach((file, index) => {
     const { name, startOffset, endOffset } = file;
-    const data = bs.subArray(startOffset, endOffset);
-    files.push({ name, data });
+
+    try {
+      const data = bs.subArray(startOffset, endOffset);
+
+      // Generate filename if not provided
+      let fileName = name;
+      if (!fileName || fileName.trim() === '') {
+        const fileType = detectFileType(data);
+        const extension = fileType === 'bin' ? 'bin' : fileType;
+        fileName = `${index.toString().padStart(2, '0')}.${extension}`;
+      }
+
+      files.push({ name: fileName, data });
+    } catch (error) {
+      console.warn(`Failed to extract file ${index}: ${error.message}`);
+      // Add empty file entry to maintain index consistency
+      files.push({
+        name: `${index.toString().padStart(2, '0')}.error`,
+        data: new ArrayBuffer(0)
+      });
+    }
   });
 
   return files;

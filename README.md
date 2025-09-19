@@ -1,12 +1,8 @@
-Sure! Here's a possible README for the `ArchiveUnpacker` repository:
-
 # ArchiveUnpacker
 
-`ArchiveUnpacker` is a simple library to unpack archive files that store binary data. It supports a few common archive formats, such as ZIP, RAR, and 7z. The library is written in TypeScript and can be used both in browser and Node.js environments.
+`ArchiveUnpacker` is a TypeScript library for extracting assets from various archive formats, with specialized support for Nintendo DS game files and Phantasy Star Zero assets. The library works in both browser and Node.js environments.
 
-## Archive Unpacker
-
-You can install the library using `npm`:
+## Installation
 
 ```sh
 npm i archiveunpacker
@@ -14,87 +10,195 @@ npm i archiveunpacker
 
 ## Supported Archive Formats
 
-The following archive formats are currently supported:
+- **NARC** - Nintendo Archive format used in DS games
+- **PRS** - Phantasy Star compression algorithm
+- **ZPR** - Custom compression format used in Phantasy Star Zero
 
-- .narc
-- .prs
-- .zpr
+## Quick Start
 
-## Importing
+### Basic Usage
 
-To use the package, import the specific unpakc function from the package in order to be able to use it.
-
-```javascript
+```typescript
 import { narc, prs, zpr } from 'archiveunpacker';
-```
-
-
-```javascript
-const { narc, prs, zpr } = require('archiveunpacker');
-```
-
-## Usage
-
-The archive formats can be decompressed and split in both nodejs and in the browser. Using nodejs requires you to convert to and from and ArrayBuffer object from Node's built-in Buffer object, but the conversion is trivial. On the browser side, using ArrayBuffers is the standard and the conversions 
-
-### Nodejs (read file)
-
-```javascript
-import { prs } from 'archiveunpacker';
 import { readFileSync } from 'fs';
 
-const prsFile = readFileSync('compressedFile.prs');
-const decompressedArrayBuffer = prs(prsFile.buffer);
-const decompressedBuffer = Buffer.from(decompressedArrayBuffer);
-```
+// Extract a ZPR-compressed NARC file (Phantasy Star Zero)
+const compressedData = readFileSync('asset.narc');
+const decompressed = zpr(compressedData.buffer);
+const files = narc(decompressed);
 
-### Browser (ajax)
-
-```javascript
-const { prs } = require('archiveunpacker');
-const req = await fetch('path/somefile.prs');
-const prsFile = await res.arrayBuffer();
-const decompressedArrayBuffer = prs(prsFile);
-```
-
-### Browser (file input)
-
-```javascript
-import { prs } from 'archiveunpacker';
-
-const fileInput = document.getElementById('my-file-input');
-fileInput.addEventListener('change', async evt => {
-
-	const { files } evt.target;
-	if(!files || !files.length) {
-		return;
-	}
-
-	const [ file ] = files;
-	const prsFile = await file.arrayBuffer()
-	const decompressedArrayBuffer = prs(prsFile);
-
+console.log(`Extracted ${files.length} files`);
+files.forEach(file => {
+  console.log(`${file.name}: ${file.data.byteLength} bytes`);
 });
 ```
 
-## Formats
+### Phantasy Star Zero Asset Extraction
 
-### .prs
+```typescript
+import { extractPSZAsset, analyzePSZAsset } from 'archiveunpacker/example';
 
-PRS is an LZ77 compression format often used by Sega for games on the Dreamcast and Gamecube. Often the files are not labeled with a `.prs` extension. The most common way to detect this format is to look at the binary of the file, if it starts with a MAGIC number and is somewhat readble, but gets more jumbled over time, then it is likely compressed. 
+// Extract all files from a PSZ asset
+extractPSZAsset('data/player/pb_bird.narc', './extracted');
 
-### .narc
+// Analyze asset contents
+analyzePSZAsset('data/enemy/vulture.narc');
+```
 
-NARC is a "Nitro Archive", which is an archive format used for Phantasy Star Zero on the Nintendo DS. Not sure where else this is used. This function will take a .narc archive and returns a list of Files with a name: string and data: ArrayBuffer.
 
-### .zpr
+## API Reference
 
-ZPR is a compression format used for Phantasy Star Zero on the Nintendo DS. Intermally the way this works is there is a 0x10 length header, will all of the bytes afterwards (un)XOR'dby 0x95. This will fix the bytes to be readable and then decompress the file with `prs` and return the result. 
+### ZPR Decompression
 
-## Dingboard
+Decompresses ZPR-compressed files used in Phantasy Star Zero:
 
-- Dingboard
+```typescript
+function zpr(buffer: ArrayBuffer): ArrayBuffer
+```
+
+- **buffer**: ZPR-compressed data
+- **Returns**: Decompressed ArrayBuffer (usually NARC data)
+- **Throws**: Error if invalid ZPR header or decompression fails
+
+### NARC Archive Extraction
+
+Extracts files from Nintendo DS NARC archives:
+
+```typescript
+function narc(buffer: ArrayBuffer): ByteFile[]
+
+interface ByteFile {
+  name: string;
+  data: ArrayBuffer;
+}
+```
+
+- **buffer**: NARC archive data
+- **Returns**: Array of extracted files with names and data
+- **Features**: Automatic file type detection, proper filename generation
+
+### PRS Decompression
+
+Decompresses data using the Phantasy Star compression algorithm:
+
+```typescript
+function prs(buffer: ArrayBuffer, outputSize?: number): ArrayBuffer
+```
+
+- **buffer**: PRS-compressed data
+- **outputSize**: Expected output size (optional)
+- **Returns**: Decompressed ArrayBuffer
+
+## File Type Detection
+
+The NARC extractor automatically detects file types and assigns appropriate extensions:
+
+- **BMD0** → `.nsbmd` (3D Models)
+- **BTX0** → `.nsbtx` (Textures)
+- **BCA0** → `.nsbca` (Animations)
+- **BTP0** → `.nsbtp` (Pattern Animations)
+- **BTA0** → `.nsbta` (Material Animations)
+- **NARC** → `.narc` (Nested Archives)
+- **Unknown** → `.bin` (Binary Data)
+
+## Examples
+
+### Extract Player Weapon
+
+```typescript
+import { zpr, narc } from 'archiveunpacker';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+
+// Load weapon file
+const weaponData = readFileSync('data/player/08_handgun_sw_pa00.narc');
+
+// Decompress and extract
+const decompressed = zpr(weaponData.buffer);
+const files = narc(decompressed);
+
+// Save extracted files
+mkdirSync('extracted/handgun', { recursive: true });
+files.forEach((file, index) => {
+  const outputPath = `extracted/handgun/${file.name}`;
+  writeFileSync(outputPath, Buffer.from(file.data));
+  console.log(`Extracted: ${file.name}`);
+});
+
+// Expected output:
+// Extracted: 00.nsbmd (3D model)
+// Extracted: 01.nsbca (animations)
+// Extracted: 02.nsbtx (textures)
+```
+
+### Batch Process Directory
+
+```typescript
+import { readdirSync } from 'fs';
+import { join } from 'path';
+
+const inputDir = 'data/player';
+const outputDir = 'extracted/player';
+
+const narcFiles = readdirSync(inputDir).filter(f => f.endsWith('.narc'));
+
+narcFiles.forEach(filename => {
+  const inputPath = join(inputDir, filename);
+  const assetName = filename.replace('.narc', '');
+
+  try {
+    extractPSZAsset(inputPath, join(outputDir, assetName));
+    console.log(`✅ Processed ${filename}`);
+  } catch (error) {
+    console.error(`❌ Failed ${filename}:`, error.message);
+  }
+});
+```
+
+## Error Handling
+
+The library includes comprehensive error handling:
+
+```typescript
+try {
+  const decompressed = zpr(buffer);
+  const files = narc(decompressed);
+} catch (error) {
+  if (error.message.includes('Invalid ZPR magic')) {
+    console.log('File is not ZPR compressed');
+  } else if (error.message.includes('Invalid NARC magic')) {
+    console.log('Decompressed data is not a NARC archive');
+  } else {
+    console.error('Extraction failed:', error.message);
+  }
+}
+```
+
+## CLI Usage
+
+Build and use the example CLI:
+
+```bash
+npm run build
+
+# Extract a single asset
+node lib/example.js extract data/player/pb_bird.narc ./output
+
+# Analyze asset contents
+node lib/example.js analyze data/enemy/vulture.narc
+```
 
 ## License
 
-The `ArchiveUnpacker` library is licensed under the MIT License. See the `LICENSE` file for details.
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Submit a pull request
+
+## Related Projects
+
+- [apicula](https://github.com/scurest/apicula) - Convert extracted 3D models to modern formats
+- [ndstool](https://github.com/devkitPro/ndstool) - Nintendo DS ROM manipulation
