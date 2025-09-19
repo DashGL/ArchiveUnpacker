@@ -94,11 +94,8 @@ const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
     length: bs.readUInt32(),
   };
 
-  const relOffset = bs.tell();
-  bnafFiles.forEach((file) => {
-    file.startOffset += relOffset;
-    file.endOffset += relOffset;
-  });
+  // Store current position for later FIMG section calculation
+  const btnfSectionStart = bs.tell();
 
   const rootNameEntryOffset = bs.readUInt32();
 
@@ -182,12 +179,39 @@ const narc = (inBuffer: ArrayBuffer): ByteFile[] => {
     }
   };
 
+  // Find FIMG section (file data)
+  // Scan for FIMG section starting from current position
+  let fimgPosition = -1;
+  const startScanPosition = bs.tell();
+
+  // Scan up to 1KB ahead for FIMG section
+  for (let pos = startScanPosition; pos < Math.min(startScanPosition + 1024, inBuffer.byteLength - 8); pos++) {
+    bs.seek(pos);
+    const testMagic = bs.readString(4);
+    if (testMagic === 'FIMG' || testMagic === 'GMIF') {
+      fimgPosition = pos;
+      break;
+    }
+  }
+
+  if (fimgPosition === -1) {
+    throw new Error('FIMG section not found');
+  }
+
+  bs.seek(fimgPosition);
+  const fimgMagic = bs.readString(4);
+  const fimgLength = bs.readUInt32();
+  const fimgDataStart = bs.tell(); // This is where file data actually starts
+
   // Loop Through each file and slice
   bnafFiles.forEach((file, index) => {
     const { name, startOffset, endOffset } = file;
 
     try {
-      const data = bs.subArray(startOffset, endOffset);
+      // Calculate absolute positions from FIMG data start
+      const absoluteStart = fimgDataStart + startOffset;
+      const absoluteEnd = fimgDataStart + endOffset;
+      const data = bs.subArray(absoluteStart, absoluteEnd);
 
       // Generate filename if not provided
       let fileName = name;
