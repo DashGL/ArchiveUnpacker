@@ -27,9 +27,11 @@
 import narc from './narc';
 import prs from './prs';
 import zpr from './zpr';
+import zarc from './zarc';
+import ByteReader from './ByteReader';
 
 // Type Imports
 import { ByteFile } from './types';
 
 // Exports
-export { narc, prs, zpr, ByteFile };
+export { narc, prs, zpr, zarc, ByteReader, ByteFile };

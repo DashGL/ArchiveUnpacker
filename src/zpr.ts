@@ -26,11 +26,32 @@
 import prs from './prs';
 
 const zpr = (inBuffer: ArrayBuffer): ArrayBuffer => {
-  const toDecompress = new Uint8Array(inBuffer.slice(0x10));
-  for (let i = 0; i < toDecompress.byteLength; i++) {
-    toDecompress[i] ^= 0x95;
+  // Validate ZPR header
+  const headerView = new DataView(inBuffer);
+  const magic = new TextDecoder().decode(inBuffer.slice(0, 4));
+
+  if (magic !== 'ZPR\0') {
+    throw new Error('Invalid ZPR magic header');
   }
-  return prs(toDecompress.buffer);
+
+  if (inBuffer.byteLength < 16) {
+    throw new Error('ZPR file too small');
+  }
+
+  // Read decompressed size from header at offset 0x08
+  const decompressedSize = headerView.getUint32(0x08, true);
+
+  // Extract compressed data (skip 16-byte header)
+  const compressedData = new Uint8Array(inBuffer.slice(0x10));
+
+  // XOR decrypt with key 0x95
+  const decrypted = new Uint8Array(compressedData.length);
+  for (let i = 0; i < compressedData.length; i++) {
+    decrypted[i] = compressedData[i] ^ 0x95;
+  }
+
+  // PRS decompress with expected output size
+  return prs(decrypted.buffer, decompressedSize);
 };
 
 export default zpr;
